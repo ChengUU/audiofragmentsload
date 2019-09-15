@@ -1,0 +1,53 @@
+# Created by .ignore support plugin (hsz.mobi)
+### Example user template template
+### Example user template
+
+# IntelliJ project files
+.idea/libraries
+.idea
+*.iml
+*/*.iml
+logs/
+target/
+
+*.tar.gz
+
+*.java.orig
+.classpath
+.project
+.settings
+.factorypath
+
+# Java
+*.class
+*.jar
+*.war
+
+# Eclipse
+.classpath
+.project
+.settings/
+
+# Intellij
+.idea/
+*.iml
+*.iws
+out/
+
+# Mac
+.DS_Store
+
+# Maven
+log/
+target/
+
+# svn
+.svn/
+scandir/
+rebel.xml
+
+#lilei environment
+dep2.sh
+
+#log
+*.log
