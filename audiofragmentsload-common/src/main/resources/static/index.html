@@ -8,8 +8,11 @@
 </head>
 <body>
     <div class="panel-bg am-margin-sm am-padding-sm">
-        <div id="waveform" audio-id>
-        </div>
+        <div
+                class="wave-container"
+                :style="{width: waveContainerWidth=='100%'?'100%':waveContainerWidth+'px'}"
+        >
+        <div id="waveform" audio-id> </div>
         <!-- 时间线 -->
         <div id="wave-timeline"></div>
         <div class="am-margin-top-sm" id="wave-btn-group">

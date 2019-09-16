@@ -37,24 +37,7 @@
 
 
     <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-configuration-processor</artifactId>
-            <version>${springboot.version}</version>
-        </dependency>
 
-        <!--test scope-->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <version>${springboot.version}</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.assertj</groupId>
-                    <artifactId>assertj-core</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
     </dependencies>
 
     <build>

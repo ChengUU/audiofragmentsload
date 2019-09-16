@@ -1,5 +1,19 @@
 window.parent.baseUrl = "localhost:8080/audio-fragments-load/";
-
+$(function () {
+    /*自定义字符串格式化*/
+    String.prototype.format = function (args) {
+        /*this代表要调用Format方法的字符串*/
+        /*replace的第一个参数为正则表达式，g表示处理匹配到的所有字符串，在js中使用//包起来*/
+        /*replace的第二个参数为匹配字符串的处理，k1匹配结果包含{}，k2只保留{}内的内容*/
+        var temp = this.replace(/\{(\w+)\}/g, function (k1, k2) {
+            console.log(k1, k2);
+            /*replace将匹配到的k2用参数args替换后赋给新变量temp*/
+            return args[k2];
+        });
+        /*自定义方法Format将格式化后的字符串返回*/
+        return temp;
+    };
+});
 document.addEventListener('DOMContentLoaded', function () {
     var tempInterval=null;
     var tempIndex=0;
@@ -17,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function () {
         waveFormLeft: 0,
         waveWrapper: null,
         wavesurfer:null,
+        rangeSecond: 100,
         /**
          * 获取音频片段
          * @param segNumber 加载第几段
@@ -36,7 +51,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
             var startBit = this.rangeBit * (segNumber - 1);
             var endBit = this.rangeBit * segNumber;
-            xhr.setRequestHeader("Range", "bytes='${startBit}'-'${endBit}'");
+            var bytes="bytes={startBit}-{endBit}";
+            xhr.setRequestHeader("Range", bytes.format({startBit:startBit,endBit:endBit}));
 
             xhr.onload = function () {
                 console.log("load audio url successful");
@@ -96,53 +112,55 @@ document.addEventListener('DOMContentLoaded', function () {
          * @param e 点击的容器e
          */
         containerClick: function (e) {
-            if (this.segNumbers == 1 || this.progress) {
+            if (that.segNumbers == 1 || this.progress) {
                 return;
             }
             // 点击的位置记录
             var layerX = e.layerX;
 
             // 记录当前鼠标点击的绝对位置
-            var scrollLeft = this.waveWrapper.scrollLeft;
+            var scrollLeft = that.waveWrapper.scrollLeft;
             this.clickWrapperPos = layerX - scrollLeft;
 
             // 获取点击的时间点
             var currentTime = parseInt(layerX / 20);
 
             // 获取字节所在
-            var size = this.audioInfo.size;
-            var duration = this.audioInfo.duration;
-            var bitrate = this.audioInfo.sampleRate * this.audioInfo.frameSize * 8 / 1000;
+            var size = that.audioInfo.size;
+            var duration = that.audioInfo.duration;
+            var bitrate = that.audioInfo.sampleRate * that.audioInfo.frameSize * 8 / 1000;
             var currentBit = (bitrate * currentTime) / 8;
             var seg = Math.ceil(currentBit / this.rangeBit);
 
             // 因为音乐的动态性，所以请求的段数会存在误差，这个时候更改请求的段数
-            if (seg == this.currentSeg) {
+            if (seg ==that.currentSeg) {
                 // let currentMinTime = 60 * (this.currentSeg-1);
                 // let currentMaxTime = 60 * this.currentSeg;
-                var average = (120 * this.currentSeg - this.rangeSecond) / 2;
+                var average = (120 * that.currentSeg - that.rangeSecond) / 2;
                 seg = currentTime > average ? seg + 1 : seg - 1;
             }
             this.currentTime = currentTime;
 
             // 有缓存数据
             this.progress = true;
-            if (this.blobPools[seg]) {
+            if (that.blobPools[seg]) {
                 // 加载缓存数据
-                this.wavesurfer.load(this.blobPools[seg].url);
+                that.wavesurfer.load(that.blobPools[seg].url);
 
                 // 更改当前的播放段数
-                this.currentSeg = seg;
-                this.setScrollPos();
+                that.currentSeg = seg;
+                that.setScrollPos();
             } else {
-                this.getAudioSeg(seg);
+                that.getAudioSeg(seg);
             }
             // 记录这是点击请求的波纹，在波纹的ready方法中做处理
-            this.fromSeek = true;
+            that.fromSeek = true;
         }
     };
 
     addAudiosNum(null);
+
+    $("wave-container").on("click",that.containerClick);
 
     /**
      * 加载音频列表
@@ -157,8 +175,35 @@ document.addEventListener('DOMContentLoaded', function () {
                 "Content-type": "application/json; charset=utf-8"
             },
             success: function (res) {
-                // console.log(res);
+                // 初始化参数
                 that.audioInfo = res;
+                console.log(res);
+                var data={
+                    duration: parseFloat(res.duration),
+                    sampleRate: parseInt(res.sampleRate),
+                    frameSize: parseInt(res.frameSize),
+                    size: parseInt(res.size),
+                    channels: parseInt(res.channels)
+                };
+                // 音频时长
+                that.duration = data.duration;
+                // 音频宽：防止音频过短，渲染不完
+                var dWidth = Math.round(data.duration * 20);
+                that.waveContainerWidth = that.wrapperWidth > dWidth ? that.wrapperWidth : dWidth;
+
+                console.log(data);
+                that.bitrate=data.frameSize*data.sampleRate*8/1000;
+
+                // 如果音频的长度大于500s分段请求,每段100s
+                // 1分钟的字节数[平均] = 比特率(bps) * 时长(s)  /  8
+                that.rangeBit =   that.duration > 500 ?data.frameSize*data.sampleRate*that.rangeSecond: data.size;
+
+                // 总段数
+                that.segNumbers = Math.ceil(data.size / that.rangeBit);
+
+                console.log(that.rangeBit);
+                console.log(that.segNumbers);
+
                 /**
                  * 加载音频
                  */
@@ -225,59 +270,6 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
-
-    /**
-     * 加载新的音频
-     * @param url
-     */
-    function changeAudio(url) {
-        if (that.wavesurfer != null) {
-            that.wavesurfer.destroy();
-            console.log(wavesurfer);
-        }
-        that.wavesurfer = null;
-        that.wavesurfer = createWavesurfer();
-        waveBindEvent(that.wavesurfer);
-
-        var xhr = new XMLHttpRequest();
-        xhr.open(
-            "GET",
-            url,
-            true
-        );
-        xhr.responseType = "arraybuffer";
-        xhr.onload = function () {
-            var type = xhr.getResponseHeader("Content-Type");
-            var blob = new Blob([this.response], {type: type});
-            that.wavesurfer.load(URL.createObjectURL(blob));
-        };
-        xhr.send();
-        //动态提示
-        tempInterval = setInterval(function () {
-            tempIndex = (tempIndex + 1) % 5;
-            var str = "";
-            for (var i = 0; i <= tempIndex; i++) {
-                str += ".";
-            }
-            resetTips('音频下载中' + str);
-        }, 400);
-
-
-    }
-
-//获取子元素个数
-    function getChildrenCount(id) {
-        return ($('#' + id).children().length + 1);
-    }
-
-//重置序号
-    function resetSerialNum(classname) {
-        var reglen = $(classname).length;
-        var SerialNum = $(classname);
-        for (i = 0; i < reglen; i++) {
-            SerialNum.eq(i).html((i + 1));
-        }
-    }
 
 // 开始-暂停音频
     $('#waveStart').on('click', function () {
@@ -509,16 +501,15 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         that.wavesurfer.on('ready', function () {
-            // that.wavesurfer.zoom(that.wavesurfer.params.minPxPerSec*1.3);
             // 记录当断的位置
             var pools = that.blobPools;
-
+            var currentSeg=that.currentSeg;
             // 第一段
             if (currentSeg == 1) {
                 pools[currentSeg].startPos = 0;
                 pools[currentSeg].endPos = that.waveFormWidth;
                 // 预加载第二段
-                if (segNumbers > 1) {
+                if (that.segNumbers > 1) {
                     that.getAudioSeg(2, true);
                 }
             } else if (currentSeg == that.segNumbers) {
@@ -544,240 +535,6 @@ document.addEventListener('DOMContentLoaded', function () {
             clearInterval(tempInterval);
             tempInterval = null;
             resetTips('波形绘制完成');
-            // goOn=false;
-            // console.log(that.wavesurfer.getDuration());
-            loadOriginData("filename");
-        });
-
-        that.wavesurfer.on('region-out', function (region) {
-            // that.wavesurfer.pause();
-            if (isClick && that.wavesurfer.getCurrentTime() + 0.2 >= nowplayRegion.end) {
-                that.wavesurfer.pause();
-                isClick = false;
-            }
-        });
-        that.wavesurfer.on('region-click', function (region, e) {
-            setTimeout(function () {
-                var temp = that.wavesurfer.getCurrentTime();
-                var end = region.end;
-                that.wavesurfer.play(temp, end - 0.025);
-
-
-            }, 15);
-
-
-            $('li.mark-text-panel[region-id=' + region.id + ']').find('textarea').focus();
-            //获取当前region对象
-            var $region = $('region[data-id=' + region.id + ']');
-            $region.addClass('region-active').siblings().removeClass('region-active').end();
-
-
-        });
-
-
-        //创建新的选区时触发
-        that.wavesurfer.on('region-created', function (region) {
-            //<div style="color;color: #fff;">999</div>
-            var $reg = $('region[data-id=' + region.id + ']');
-            //显示时间
-            var temp = '<div class="time" style="color: #fff;position: absolute;bottom: 5px;width:  100%;text-align:  center;z-index: -10;"><p style="word-break:  break-all;">' + (region.end - region.start).toFixed(6) + '</p></div>';
-            $reg.append(temp);
-            //显示序号
-            var num = getChildrenCount('mark-text-list');
-            temp = '<span class="region-num" style="position: absolute;z-index: 10;background-color:#5eb95e;display: block;min-width: 2rem;left:calc(44% - 1rem) ;top: 0;text-align: center;color: #fff;"> ' + num + '</span>';
-            $reg.append(temp);
-
-            if (goOn) {//如果通过已有数据创建的选区
-                //将新的选取id录入
-                reglen = regIDarray.push(region.id);
-
-                //新增标注文本录入区域
-                var $li = '<li  cutAudio-num="-1" truncateState="0"  class="mark-text-panel am-padding-sm am-margin-top" region-id=' + region.id + '>' +
-                    '<i class="SerialNum">' +
-                    getChildrenCount('mark-text-list') +
-                    '</i >' +
-                    '<i class="Delete am-icon-fw am-icon-trash">' +
-                    '</i>' +
-                    ' <i class="SetMes am-icon-fw am-icon-cog am-icon-md cfff"></i>' +
-                    ' <section class="mark-input-text">' +
-                    '<div>' +
-                    '<label class="am-margin-left-sm cfff">' +
-                    ' 文本: <textarea cols="" rows="" placeholder="在此输入音频内容,不能为空" reg-id=' + region.id + '></textarea>' +
-                    '</label>' +
-                    '<div class="btn-box">' +
-                    '<button class="play-mark am-btn am-round am-btn-secondary">播放</button>' +
-                    //' <button class="sure-mark am-btn am-round am-btn-success">确定</button>' +
-                    '</div>' +
-                    '</div>' +
-                    '<div class="am-margin-top notes">' +
-                    ' <div hidden class="mark-tip am-padding-left-sm">标签:&nbsp;&nbsp;<span class="am-badge am-badge-secondary am-radius"></span></div>' +
-                    '</div >' +
-                    '<div class="am-margin-top-sm tips">' +
-                    '<div hidden="" class="mark-tip am-padding-left-sm">备注:&nbsp;&nbsp;<span ' +
-                    ' class="am-badge am-badge-danger am-radius"></span></div>' +
-                    '</div>' +
-                    '</section>' +
-                    '</li >';
-                $('#mark-text-list').append($li);
-
-                //新增的句子列表序号
-                $li = '<li class="order-num" region-id=' + region.id + '>' +
-                    getChildrenCount('mark-order-list') + '</li>';
-                $('#mark-order-list').append($li);
-
-                $('textarea[reg-id=' + region.id + ']').bind("contextmenu", function () {
-                    return false;
-                });
-                /**
-                 * 监听输入框输入框鼠标单击事件
-                 */
-                var areaForMenu = "";
-                $('#mark-text-list').on('mousedown', 'textarea', function (event) {
-                    var e = event || window.event;
-                    var code = e.which || e.keyCode;
-                    // console.log(code);
-                    switch (code) {
-                        case 3:
-                            //    console.log(event.screenX+"---"+event.screenY);
-                            $('#zz').show();
-                            $('#audiochar').css("left", event.pageX + 10 + "px");
-                            $("#audiochar").css("top", event.pageY + 10 + 'px');//设置 出现的位置
-                            break;
-                        default:
-                            break;
-                    }
-                    var text = $(this).val();
-                    /**
-                     * 选择噪音符号
-                     */
-                    areaForMenu = $(this);
-                    $('#audiochar').on('click', 'li', function (event) {
-                        areaForMenu.val(text + $(this).children('i').html());
-                    })
-                });
-                /**
-                 * 隐藏遮罩层
-                 */
-                $('#zz').on('click', function () {
-                    $(this).hide();
-                });
-                $('#zz').on('contextmenu', function () {
-                    return false;
-                })
-
-
-                if (reglen != 1) {
-                    var reg = that.wavesurfer.regions.list;
-                    var key = reg[regIDarray[reglen - 2]];
-                    var kStart = key.start;
-                    var kEnd = key.end;
-                    //重叠的三种情况
-                    var scene1 = (region.start > kStart && region.start < kEnd);
-                    if (scene1) {
-                        region.onResize(kEnd - region.start, 'start');
-                        console.log("原始数据重叠第:" + reglen);
-                    }
-                }
-            }
-
-
-            //当选区发生拖拽或者移动之后
-            region.on('update-end', function () {
-                //更新时长
-                $reg.children('.time').children().html((region.end - region.start).toFixed(6));
-                //修改其状态
-                var $li = $('#mark-text-list').children('li[region-id="' + region.id + '"]');
-                var truncatestate = $li.attr('truncatestate');
-                if (truncatestate == 2) {
-                    $li.attr('truncatestate', 1);
-                }
-
-
-                if (isOverlayReg(region)) {
-                    console.log("区域重叠");
-                }
-
-                if ($.inArray(region.id, regIDarray) < 0) {//如果该选区不存在
-                    //将新的选取id录入
-                    reglen = regIDarray.push(region.id);
-                    //新增标注文本录入区域
-                    var $li = '<li cutAudio-num="-1" truncateState="0"  class="mark-text-panel am-padding-sm am-margin-top" region-id=' + region.id + '>' +
-                        '<i class="SerialNum">' +
-                        getChildrenCount('mark-text-list') +
-                        '</i >' +
-                        '<i class="Delete am-icon-fw am-icon-trash">' +
-                        '</i>' +
-                        ' <i class="SetMes am-icon-fw am-icon-cog am-icon-md cfff"></i>' +
-                        ' <section class="mark-input-text">' +
-                        '<div>' +
-                        '<label class="am-margin-left-sm cfff">' +
-                        ' 文本: <textarea cols="" rows="" placeholder="在此输入音频内容,不能为空" reg-id=' + region.id + '></textarea>' +
-                        '</label>' +
-                        '<div class="btn-box">' +
-                        '<button class="play-mark am-btn am-round am-btn-secondary">播放</button>' +
-                        ' <button class="sure-mark am-btn am-round am-btn-success">确定</button>' +
-                        '</div>' +
-                        '</div>' +
-                        '<div class="am-margin-top notes">' +
-                        ' <div hidden class="mark-tip am-padding-left-sm">标签:&nbsp;&nbsp;<span class="am-badge am-badge-secondary am-radius reason" value="[]"></span></div>' +
-                        '</div >' +
-                        '<div class="am-margin-top-sm tips">' +
-                        '<div hidden="" class="mark-tip am-padding-left-sm">备注:&nbsp;&nbsp;<span ' +
-                        ' class="am-badge am-badge-danger am-radius"></span></div>' +
-                        '</div>' +
-                        '</section>' +
-                        '</li >';
-                    $('#mark-text-list').append($li);
-
-                    //新增的句子列表序号
-                    $li = '<li class="order-num" region-id=' + region.id + '>' +
-                        getChildrenCount('mark-order-list') + '</li>';
-                    $('#mark-order-list').append($li);
-                    //为新增的绑定textarea禁用右键默认菜单
-                    $('textarea[reg-id=' + region.id + ']').bind("contextmenu", function () {
-                        return false;
-                    });
-                    /**
-                     * 监听输入框输入框鼠标单击事件
-                     */
-                    var areaForMenu = "";
-                    $('#mark-text-list').on('mousedown', 'textarea', function (event) {
-                        var e = event || window.event;
-                        var code = e.which || e.keyCode;
-                        // console.log(code);
-                        switch (code) {
-                            case 3:
-                                //    console.log(event.screenX+"---"+event.screenY);
-                                $('#zz').show();
-                                $('#audiochar').css("left", event.pageX + 10 + "px");
-                                $("#audiochar").css("top", event.pageY + 10 + 'px');//设置 出现的位置
-                                break;
-                            default:
-                                break;
-                        }
-                        var text = $(this).val();
-                        /**
-                         * 选择噪音符号
-                         */
-                        areaForMenu = $(this);
-                        $('#audiochar').on('click', 'li', function (event) {
-                            areaForMenu.val(text + $(this).children('i').html());
-                        })
-                    });
-                    /**
-                     * 隐藏遮罩层
-                     */
-                    $('#zz').on('click', function () {
-                        $(this).hide();
-                    });
-                    $('#zz').on('contextmenu', function () {
-                        return false;
-                    })
-
-
-                }
-            });
-
         });
 
     }
