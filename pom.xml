@@ -11,6 +11,7 @@
         <module>audiofragmentsload-services</module>
         <module>audiofragmentsload-utils</module>
         <module>audiofragmentsload-data</module>
+        <module>audiofragmentsload-common</module>
     </modules>
     <packaging>pom</packaging>
 

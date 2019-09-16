@@ -51,6 +51,47 @@ public class AudioFileUtil {
     }
 
     /**
+     *
+     * @param srcFile 音频文件
+     * @return 1 for mono, 2 for stereo
+     */
+    public static int getChannels(final String srcFile){
+        int channels=Constants.INTEHER_ZERO;
+        try {
+            AudioFormat format = getAudioFormat(srcFile);
+            channels=format.getChannels();
+        } catch (UnsupportedAudioFileException e) {
+            logger.warn(String.format("Getting the number of audio file channel - %s, %s.",srcFile,e.getMessage()));
+            e.printStackTrace();
+        } catch (IOException e) {
+            logger.warn(String.format("Getting the number of audio file channel - %s, %s.",srcFile,e.getMessage()));
+            e.printStackTrace();
+        }
+        return channels;
+    }
+
+    /**
+     * Getting the encoding name of audio file
+     * @param srcFile 音频文件
+     * @return the encoding name of audio file
+     */
+    public static String getEncoding(final String srcFile){
+        String encoding=null;
+        try {
+            AudioFormat format = getAudioFormat(srcFile);
+            AudioFormat.Encoding encodingType=format.getEncoding();
+            encoding=encodingType.toString();
+        } catch (UnsupportedAudioFileException e) {
+            logger.warn(String.format("Getting the encoding name of audio file - %s, %s.",srcFile,e.getMessage()));
+            e.printStackTrace();
+        } catch (IOException e) {
+            logger.warn(String.format("Getting the  encoding nam of audio file - %s, %s.",srcFile,e.getMessage()));
+            e.printStackTrace();
+        }
+        return encoding;
+    }
+
+    /**
      * 计算音频长度
      *
      * @param srcFile 音频文件
@@ -69,7 +110,6 @@ public class AudioFileUtil {
             AudioFormat format = fileFormat.getFormat();
             format.getChannels();
             format.getEncoding();
-            format.getSampleSizeInBits();
             // 每秒多少个byte
             float bytesPerSecond = format.getFrameSize() * format.getFrameRate();
             // 文件总长度

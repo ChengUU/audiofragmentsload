@@ -1,0 +1,17 @@
+spring:
+  http:
+    multipart:
+      max-request-size: 110MB
+      max-file-size: 100MB
+  mvc:
+    static-path-pattern: /**
+  resources:
+    static-locations: classpath:/static/
+server:
+  port: 8080
+  context-path: /audio-fragments-load
+logging:
+  path: /home/chengxx/audio_fragments_load/logs
+  file: audio-fragments-load.log
+  level:
+    com.hztzasr.amory.voicetagging.service: debug
