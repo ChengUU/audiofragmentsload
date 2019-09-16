@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <link rel="stylesheet" href="css/assets/css/amazeui.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="panel-bg am-margin-sm am-padding-sm">
+        <div id="waveform" audio-id>
+        </div>
+        <!-- 时间线 -->
+        <div id="wave-timeline"></div>
+        <div class="am-margin-top-sm" id="wave-btn-group">
+            <button data-action="zoomin" class="am-margin-left am-icon-search-plus zoom-btn"></button>
+            <button data-action="zoomout" class="am-margin-left am-icon-search-minus zoom-btn"></button>
+            <button id="waveStart" class="am-round am-btn am-btn-secondary am-center">开始/暂停</button>
+        </div>
+    </div>
+
+    <script src="js/libs/jquery.min.js"></script>
+    <script src="css/assets/js/amazeui.min.js"></script>
+    <script src="js/plugs/dist/wavesurfer.min.js"></script>
+    <script src="js/plugs/dist/plugin/wavesurfer.timeline.min.js"></script>
+    <script src="js/plugs/dist/plugin/wavesurfer.regions.min.js"></script>
+    <script src="js/views/enterjs/common.js"></script>
+    <script src="js/views/enterjs/mark.js"></script>
+</body>
+</html>

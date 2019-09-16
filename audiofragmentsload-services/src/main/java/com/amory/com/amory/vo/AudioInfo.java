@@ -17,12 +17,12 @@ import lombok.*;
 @ToString
 @Builder
 public class AudioInfo {
-    /** 比特率 */
-    private float bitRate;
+    /** 帧大小 */
+    private int frameSize;
     /** 轨道 */
     private int channels;
     /** 音频长度 */
-    private float duration;
+    private double duration;
     /** 音频格式 */
     private String encoding;
     /** 采样率 */

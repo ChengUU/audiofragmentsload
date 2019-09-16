@@ -1,0 +1,8 @@
+  .theme-black .tpl-table-black-operation a.tpl-table-black-operation-green {
+    border: 1px solid #5eb95e;
+    color: #5eb95e; }
+    
+    .theme-black .tpl-table-black-operation a.tpl-table-black-operation-green:hover {
+      background: #5eb95e;
+      color: #fff; }
+      
