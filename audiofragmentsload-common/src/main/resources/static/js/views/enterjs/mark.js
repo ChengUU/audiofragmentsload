@@ -1,4 +1,4 @@
-window.parent.baseUrl = "localhost:8080/audio-fragments-load/";
+window.parent.baseUrl = "localhost:8080/";
 $(function () {
     /*自定义字符串格式化*/
     String.prototype.format = function (args) {
@@ -6,7 +6,6 @@ $(function () {
         /*replace的第一个参数为正则表达式，g表示处理匹配到的所有字符串，在js中使用//包起来*/
         /*replace的第二个参数为匹配字符串的处理，k1匹配结果包含{}，k2只保留{}内的内容*/
         var temp = this.replace(/\{(\w+)\}/g, function (k1, k2) {
-            console.log(k1, k2);
             /*replace将匹配到的k2用参数args替换后赋给新变量temp*/
             return args[k2];
         });
@@ -18,20 +17,31 @@ document.addEventListener('DOMContentLoaded', function () {
     var tempInterval=null;
     var tempIndex=0;
     var that = {
+		// 包装盒子宽度
+		 wrapperWidth: 0,
+		 // 波形渲染容器宽度
         waveContainerWidth: 0,
-        wrapperWidth: 0,
+		// 音频信息
+		audioInfo: {},
+		// 缓存音频片段
+		blobPools: [],
         res: {},
         duration: 0,
         rangeBit: 0,
-        audioInfo: {},
-        blobPools: [],
+        bitrate: 0,
+        // 波形渲染宽度    
         waveFormWidth: 0,
+		// 缓存音频段数
         segNumbers: 0,
+		// 当前音频段数
         currentSeg: 1,
         waveFormLeft: 0,
         waveWrapper: null,
         wavesurfer:null,
         rangeSecond: 100,
+        currentTime:0,
+        progress:0,
+        clickWrapperPos:{},
         /**
          * 获取音频片段
          * @param segNumber 加载第几段
@@ -44,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
             var reqUrl = location.origin;
             xhr.open(
                 "GET",
-                "test/api/audio/1",
+                "audio-fragments-load/test/api/audio/1",
                 true
             );
             xhr.responseType = "arraybuffer";
@@ -64,12 +74,10 @@ document.addEventListener('DOMContentLoaded', function () {
                     that.blobPools[segNumber] = {
                         url: URL.createObjectURL(blob)
                     };
-                    console.log(that.blobPools);
                     // 第一次加载第一段，并对播放器事件进行绑定
                     if (initLoad) {
                         // 音频事件绑定
                         waveBindEvent();
-                        console.log(that.blobPools[segNumber]);
                         that.wavesurfer.load(that.blobPools[segNumber].url);
                         that.currentSeg = 1;
 
@@ -96,61 +104,78 @@ document.addEventListener('DOMContentLoaded', function () {
          */
         setScrollPos: function (segNumber) {
             var n = segNumber ? segNumber : this.currentSeg;
+			console.log("n="+n);
             var segNumbers = this.segNumbers;
             var end = this.blobPools[n - 1] && this.blobPools[n - 1].endPos;
             // 最后一段，这里是一个hack，为了防止误差
             if (n === segNumbers && this.blobPools[n] && this.blobPools[n].startPos) {
                 end = this.blobPools[n].startPos;
             }
-
             this.waveFormScroll = end ? end : (n - 1) * this.wrapperWidth;
+            console.log("waveFormScroll:"+this.waveFormScroll);
             this.waveFormLeft = this.waveFormScroll;
-            this.waveWrapper.scrollLeft = this.waveFormScroll;
+            console.log("waveFormLeft:"+this.waveFormLeft);
+            this.waveWrapper.scrollLeft(this.waveFormScroll);
+            console.log("waveWrapper.scrollLeft:"+this.waveWrapper.scrollLeft());
         },
         /**
          * 随机点击容器
          * @param e 点击的容器e
          */
-        containerClick: function (e) {
+        containerClick: function () {
             if (that.segNumbers == 1 || this.progress) {
                 return;
             }
             // 点击的位置记录
-            var layerX = e.layerX;
+            var layerX = event.layerX;
 
             // 记录当前鼠标点击的绝对位置
-            var scrollLeft = that.waveWrapper.scrollLeft;
-            this.clickWrapperPos = layerX - scrollLeft;
-
+            var scrollLeft = that.waveWrapper.scrollLeft();
+            console.log("滑动块位置："+scrollLeft);
+            console.log("鼠标点击位置："+layerX);
+            that.clickWrapperPos = layerX - scrollLeft;
+            console.log("点击包装盒子位置："+that.clickWrapperPos);
             // 获取点击的时间点
             var currentTime = parseInt(layerX / 20);
 
             // 获取字节所在
-            var size = that.audioInfo.size;
-            var duration = that.audioInfo.duration;
-            var bitrate = that.audioInfo.sampleRate * that.audioInfo.frameSize * 8 / 1000;
-            var currentBit = (bitrate * currentTime) / 8;
-            var seg = Math.ceil(currentBit / this.rangeBit);
-
+            var currentBit = that.audioInfo.frameSize*that.audioInfo.sampleRate * currentTime;
+            var seg = Math.ceil(currentBit / that.rangeBit);
+            console.log("初始音频段数："+seg);
             // 因为音乐的动态性，所以请求的段数会存在误差，这个时候更改请求的段数
             if (seg ==that.currentSeg) {
                 // let currentMinTime = 60 * (this.currentSeg-1);
                 // let currentMaxTime = 60 * this.currentSeg;
-                var average = (120 * that.currentSeg - that.rangeSecond) / 2;
+                var average = that.rangeSecond *(2* that.currentSeg - 1) / 2;
+                console.log(average);
+                console.log(currentTime);
                 seg = currentTime > average ? seg + 1 : seg - 1;
             }
-            this.currentTime = currentTime;
+            console.log("修改音频段数："+seg);
+            that.currentTime = currentTime;
 
+            if(seg<=0||seg>that.segNumbers){
+                seg=1;
+            }
+
+            if(seg==that.currentSeg){
+                return;
+            }
             // 有缓存数据
-            this.progress = true;
+            that.progress = true;
             if (that.blobPools[seg]) {
+                console.log("已存在直接加载-"+seg);
+				var offset=(seg-1)*that.rangeSecond;
+				that.wavesurfer.skip(offset);
                 // 加载缓存数据
                 that.wavesurfer.load(that.blobPools[seg].url);
+                console.log(that.blobPools[seg]);
 
                 // 更改当前的播放段数
                 that.currentSeg = seg;
-                that.setScrollPos();
+                // that.setScrollPos();
             } else {
+                console.log("从服务器加载-"+seg);
                 that.getAudioSeg(seg);
             }
             // 记录这是点击请求的波纹，在波纹的ready方法中做处理
@@ -158,10 +183,34 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     };
 
+    /**
+     * 加载第一段音频
+      */
     addAudiosNum(null);
 
-    $("wave-container").on("click",that.containerClick);
+    /**
+     * 初始化操作
+     */
+    function init(){
+        // 包装盒子大小
+        that.wrapperWidth=$("#wave-wrapper").css("width");
+        console.log(that.wrapperWidth);
+        console.log(that.wrapperWidth);
+        // 音频操作容器宽度
+        that.waveWrapper=$("#wave-wrapper");
+        $("#wave-container").css("width",that.wrapperWidth);
+        // 音频渲染宽度
+        that.waveFormWidth=that.rangeSecond*20;
+        // 向左偏移
+        that.waveFormLeft=that.waveFormWidth*(that.segNumbers-1);
+        that.waveFormLeft=that.waveFormLeft>0?that.waveFormLeft:0;
+        console.log("that.waveFormLeft"+that.waveFormLeft);
+        $("#wave-container").css({"padding-right":that.waveFormLeft});
+        $("#waveform").css({"width":that.waveFormWidth,"overflow":'auto'});
 
+
+        $("#wave-container").on("click",that.containerClick);
+    }
     /**
      * 加载音频列表
      * @param {Array} urlarray 音频列表数组
@@ -169,14 +218,13 @@ document.addEventListener('DOMContentLoaded', function () {
     function addAudiosNum(urlarray) {
         //获取第一条音频数据
         $.ajax({
-            url: 'test/audioinfo/' + 1,
+            url: 'audio-fragments-load/test/audioinfo/' + 1,
             type: "GET",
             headers: {
                 "Content-type": "application/json; charset=utf-8"
             },
             success: function (res) {
                 // 初始化参数
-                that.audioInfo = res;
                 console.log(res);
                 var data={
                     duration: parseFloat(res.duration),
@@ -185,6 +233,8 @@ document.addEventListener('DOMContentLoaded', function () {
                     size: parseInt(res.size),
                     channels: parseInt(res.channels)
                 };
+
+                that.audioInfo = data;
                 // 音频时长
                 that.duration = data.duration;
                 // 音频宽：防止音频过短，渲染不完
@@ -201,6 +251,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 // 总段数
                 that.segNumbers = Math.ceil(data.size / that.rangeBit);
 
+                init();
+
                 console.log(that.rangeBit);
                 console.log(that.segNumbers);
 
@@ -208,6 +260,9 @@ document.addEventListener('DOMContentLoaded', function () {
                  * 加载音频
                  */
                 that.getAudioSeg(1,true,true);
+
+                console.log("that:");
+                console.log(that);
             },
             error: function () {
                 alert("连接失败");
@@ -501,6 +556,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
 
         that.wavesurfer.on('ready', function () {
+			console.log("ready");
             // 记录当断的位置
             var pools = that.blobPools;
             var currentSeg=that.currentSeg;
@@ -517,8 +573,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 pools[currentSeg].startPos =
                     that.waveContainerWidth - that.waveFormWidth;
                 pools[currentSeg].endPos = that.waveContainerWidth;
-                console.log(pools);
-                that.setScrollPos();
             } else {
                 // 其他段
                 that.getAudioSeg(currentSeg + 1, true);
@@ -528,6 +582,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         pools[currentSeg].startPos + that.waveFormWidth;
                 }
             }
+            that.setScrollPos();
+            console.log("bolb pool elements: "+currentSeg);
+            console.log(pools[currentSeg]);
         });
 
         that.wavesurfer.on('waveform-ready', function () {

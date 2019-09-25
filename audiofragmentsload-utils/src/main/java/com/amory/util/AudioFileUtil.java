@@ -8,8 +8,7 @@ import javax.sound.sampled.AudioFileFormat;
 import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.UnsupportedAudioFileException;
-import java.io.File;
-import java.io.IOException;
+import java.io.*;
 
 /**
  * 音频文件工具类：获取音频文件长度
@@ -48,6 +47,27 @@ public class AudioFileUtil {
         // 获取音频文件格式
         AudioFileFormat fileFormat = AudioSystem.getAudioFileFormat(file);
         return fileFormat;
+    }
+
+    /**
+     * 获取音频文件头部信息
+     * @param srcFile 音频文件
+     * @return The byte array of the audio file header
+     * @throws IOException
+     */
+    public static byte[] getAudioByteHeader(final String srcFile) throws IOException {
+        File file=new File(srcFile);
+        FileReader fileReader=new FileReader(file);
+        char[] buffer=new char[100];
+        int num=fileReader.read(buffer);
+        String string=new String(buffer,0,num);
+        int findDataIndex=string.indexOf("data");
+        if(findDataIndex==-1){
+            throw new IOException(String.format("Can not locating the header of file %s",srcFile));
+        }
+        int headerEndIndex=findDataIndex+8;
+        String header=string.substring(0,headerEndIndex);
+        return header.getBytes();
     }
 
     /**

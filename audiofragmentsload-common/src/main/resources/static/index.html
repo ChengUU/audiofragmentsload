@@ -5,21 +5,23 @@
     <title>Title</title>
     <link rel="stylesheet" href="css/assets/css/amazeui.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/waveform.css">
 </head>
 <body>
     <div class="panel-bg am-margin-sm am-padding-sm">
-        <div
-                class="wave-container"
-                :style="{width: waveContainerWidth=='100%'?'100%':waveContainerWidth+'px'}"
-        >
-        <div id="waveform" audio-id> </div>
-        <!-- 时间线 -->
-        <div id="wave-timeline"></div>
+        <div id="wave-wrapper" class="waveform-wrapper">
+            <div id="wave-container" >
+                <div id="waveform"> </div>
+            </div>
+        </div>
+		<!-- 时间线 -->
+		<div id="wave-timeline"></div>
         <div class="am-margin-top-sm" id="wave-btn-group">
             <button data-action="zoomin" class="am-margin-left am-icon-search-plus zoom-btn"></button>
             <button data-action="zoomout" class="am-margin-left am-icon-search-minus zoom-btn"></button>
             <button id="waveStart" class="am-round am-btn am-btn-secondary am-center">开始/暂停</button>
         </div>
+
     </div>
 
     <script src="js/libs/jquery.min.js"></script>

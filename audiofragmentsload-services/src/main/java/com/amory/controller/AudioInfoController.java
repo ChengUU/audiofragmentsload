@@ -1,13 +1,12 @@
 package com.amory.controller;
 
 import com.amory.service.AudioInfoService;
+import com.amory.util.AudioFileUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import javax.servlet.ServletContext;
 import javax.servlet.http.HttpServletRequest;
@@ -33,15 +32,26 @@ public class AudioInfoController {
     @GetMapping("test/api/audio/{audio_id}")
     public String audioLoad(@PathVariable int audio_id){
         String str=request.getHeader("Range");
+        System.out.println(str);
         String[] bytesRange=str.split("=");
         String[] range=bytesRange[1].split("-");
         // Get your file stream from wherever.
         String fullPath = audioInfoService.getAudioFullPath(audio_id);
         File downloadFile = new File(fullPath);
 
+
+        // 音频文件头部信息
+        byte[] audioHeaderInfo=null;
+        try {
+           audioHeaderInfo = AudioFileUtil.getAudioByteHeader(fullPath);
+        }catch (IOException e){
+            return "Failed";
+        }
+
         ServletContext context = request.getServletContext();
         // get MIME type of the file
         String mimeType = context.getMimeType(fullPath);
+        System.out.println(mimeType);
         if (mimeType == null) {
             // set to binary type if MIME mapping not found
             mimeType = "application/octet-stream";
@@ -68,11 +78,11 @@ public class AudioInfoController {
             if (range.length == 2) {
                 toPos = Long.parseLong(range[1]);
             }
-            int size;
+            int size=audioHeaderInfo.length;
             if (toPos > fromPos) {
-                size = (int) (toPos - fromPos);
+                size += (int) (toPos - fromPos);
             } else {
-                size = (int) (downloadSize - fromPos);
+                size += (int) (downloadSize - fromPos);
             }
             response.setHeader("Content-Length", size + "");
             downloadSize = size;
@@ -92,6 +102,9 @@ public class AudioInfoController {
             int num;
             int count = 0; // 当前写到客户端的大小
             out = response.getOutputStream();
+            if(fromPos!=0){
+                out.write(audioHeaderInfo);
+            }
             while ((num = in.read(buffer)) != -1) {
                 out.write(buffer, 0, num);
                 count += num;
